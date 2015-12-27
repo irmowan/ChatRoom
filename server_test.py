@@ -1,72 +1,62 @@
+from __future__ import print_function
 import socket
-import select
+import thread
+import sys
 
-# Function to broadcast chat messages to all connected clients
+__author__ = 'irmo'
 
 
-def broadcast_data(sock, message):
-    # Do not send the message to master socket and the client who has send us
-    # the message
-    for socket in CONNECTION_LIST:
-        if socket != server_socket and socket != sock:
-            try:
-                socket.send(message)
-            except:
-                # broken socket connection may be, chat client pressed ctrl+c
-                # for example
-                socket.close()
-                CONNECTION_LIST.remove(socket)
+class ChatServer(socket.socket):
+    """docstring for ChatServer"""
+
+    def __init__(self, host, port):
+        super(ChatServer, self).__init__()
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            self.sock.bind((host, port))
+        except socket.error:
+            print('Bind Failed.')
+            sys.exit(0)
+        self.sock.listen(5)
+        print('Socket now listening...')
+        self.users = {}
+
+    def handle_accept(self):
+        while True:
+            conn, addr = self.sock.accept()
+            thread.start_new_thread(self.handle_single_connect, (conn, addr))
+
+    def handle_single_connect(self, conn, addr):
+        print("New connection from %s:%s", addr)
+        username = conn.recv(RECV_BUFFER)
+        self.users[username] = conn
+        msg = username + " entered the chat room."
+        self.broadcast(username, msg + "\n")
+
+        while True:
+            raw_request = conn.recv(RECV_BUFFER)
+            if not raw_request:
+                continue
+            print(raw_request)
+            self.broadcast(username, username + ": " + raw_request)
+
+        conn.close()
+
+    def broadcast(self, username, content):
+        for name, conn in self.users.items():
+            if name != username:
+                conn.sendall(content)
+
 
 if __name__ == "__main__":
 
-    # List to keep track of socket descriptors
-    CONNECTION_LIST = []
-    RECV_BUFFER = 4096  # Advisable to keep it as an exponent of 2
+    RECV_BUFFER = 4096
+    HOST = 'localhost'
     PORT = 5000
-
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # this has no effect, why ?
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind(("0.0.0.0", PORT))
-    server_socket.listen(10)
-
-    # Add server socket to the list of readable connections
-    CONNECTION_LIST.append(server_socket)
-
-    print "Chat server started on port " + str(PORT)
-
-    while True:
-        # Get the list sockets which are ready to be read through select
-        read_sockets, write_sockets, error_sockets = select.select(
-            CONNECTION_LIST, [], [])
-
-        for sock in read_sockets:
-            # New connection
-            if sock == server_socket:
-                # Handle the case in which there is a new connection recieved
-                # through server_socket
-                sockfd, addr = server_socket.accept()
-                CONNECTION_LIST.append(sockfd)
-                print "Client (%s, %s) connected" % addr
-
-                broadcast_data(sockfd, "[%s:%s] entered room\n" % addr)
-
-            # Some incoming message from a client
-            else:
-                # Data recieved from client, process it
-                try:
-                    # In Windows, sometimes when a TCP program closes abruptly,
-                    # a "Connection reset by peer" exception will be thrown
-                    data = sock.recv(RECV_BUFFER)
-                    if data:
-                        broadcast_data(sock, "\r" + '<' +
-                                       str(sock.getpeername()) + '> ' + data)
-
-                except:
-                    broadcast_data(sock, "Client (%s, %s) is offline" % addr)
-                    print "Client (%s, %s) is offline" % addr
-                    sock.close()
-                    CONNECTION_LIST.remove(sock)
-                    continue
-
-    server_socket.close()
+    server = ChatServer(HOST, PORT)
+    try:
+        server.handle_accept()
+    except KeyboardInterrupt:
+        print("Server shutdown.")
+    finally:
+        server.close()
