@@ -1,8 +1,6 @@
-import time
-
+from time import time
+from datetime import datetime
 __author__ = 'irmo'
-
-types = ['SEND', 'EXIT']
 
 
 class Protocol(object):
@@ -38,7 +36,7 @@ class Header(object):
         self.dict = {}
 
     def set_time(self, time):
-        self.dict['time'] = time
+        self.dict['time'] = str(float(time))
 
     def set_name(self, name):
         self.dict['name'] = name
@@ -117,3 +115,44 @@ class Request(Protocol):
         self.type = request_line[2]
         self.header.unpack(lines[1:4])
         self.dataEntity.unpack(''.join(lines[4:]))
+
+    def get_uri(self):
+        return self.uri
+
+    def get_type(self):
+        return self.type
+
+    def get_time(self):
+        if 'time' in self.header.dict.keys():
+            return float(self.header.dict['time'])
+
+    def get_name(self):
+        if 'name' in self.header.dict.keys():
+            return self.header.dict['name']
+
+    def get_datalen(self):
+        if 'datalen' in self.header.dict.keys():
+            return int(self.header.dict['datalen'])
+
+    def get_data(self):
+        return self.dataEntity.data
+
+
+def read_time(timestamp):
+    """ Change the timestamp in package to datetime"""
+    return str(datetime.fromtimestamp(int(timestamp)))
+
+
+def generateRequest(host, port, reqtype, username, data=''):
+    """ Generate a request package"""
+    req = Request()
+    req.generate(host, port, reqtype, time(), username, data)
+    package = req.pack()
+    return package
+
+
+def handleReuest(package):
+    """ Unpack the package received"""
+    req = Request()
+    req.unpack(package)
+    return req

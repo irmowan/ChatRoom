@@ -1,21 +1,26 @@
+# build by python2.7.10
 from __future__ import print_function
 import socket
-import thread
 import sys
+import thread
+from protocol import *
 
 __author__ = 'irmo'
 
 
 class ChatServer(socket.socket):
-    """docstring for ChatServer"""
+    """docstring for ChatServer
+    ChatServer is a class inherits from socket.
+    """
 
     def __init__(self, host, port):
         super(ChatServer, self).__init__()
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print('Socket created.')
         try:
             self.sock.bind((host, port))
         except socket.error:
-            print('Bind Failed.')
+            print('Bind failed.')
             sys.exit(0)
         self.sock.listen(5)
         print('Socket now listening...')
@@ -27,25 +32,32 @@ class ChatServer(socket.socket):
             thread.start_new_thread(self.handle_single_connect, (conn, addr))
 
     def handle_single_connect(self, conn, addr):
-        print("New connection from %s:%s", addr)
         username = conn.recv(RECV_BUFFER)
+        print("New connection from %s(%s:%s)." % (username, addr[0], addr[1]))
         self.users[username] = conn
         msg = username + " entered the chat room."
-        self.broadcast(username, msg + "\n")
+        package = generateRequest(HOST, PORT, 'SYST', 'Admin', msg)
+        self.broadcast(username, package)
 
         while True:
-            raw_request = conn.recv(RECV_BUFFER)
-            if not raw_request:
+            package = conn.recv(RECV_BUFFER)
+            if not package:
                 continue
-            print(raw_request)
-            self.broadcast(username, username + ": " + raw_request)
-
-        conn.close()
+            print(package)
+            print()
+            req = handleReuest(package)
+            if req.get_type() == 'SEND':
+                self.broadcast(username, package)
+            elif req.get_type() == 'EXIT':
+                self.users.pop(req.get_name())
+                print("Connection with %s(%s:%s) ended." % (username, addr[0], addr[1]))
+                msg = username + " exited the chat room."
+                package = generateRequest(HOST, PORT, 'SYST', 'Admin', msg)
+                self.broadcast(username, package)
 
     def broadcast(self, username, content):
         for name, conn in self.users.items():
-            if name != username:
-                conn.sendall(content)
+            conn.sendall(content)
 
 
 if __name__ == "__main__":
