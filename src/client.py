@@ -14,6 +14,7 @@ class ChatFrame(tk.Frame):
     """docstring for ChatFrame
     ChatFrame is the UI of chat room, using Tkinter.
     """
+
     def __init__(self, master=None):
         tk.Frame.__init__(self, master)
         self.publicText = tk.Text(self, width=60, height=20)
@@ -77,20 +78,18 @@ class ChatClient(socket.socket):
     """docstring for ChatClient
     ChatClient is the client class inherits from socket.
     """
+
     def __init__(self, username):
         socket.socket.__init__(self)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.connected = False
         self.username = username
 
     def connect(self, host, port, timeout=10):
         self.sock.connect((host, port))
         self.sock.settimeout(timeout)
-        self.connected = True
 
     def close(self):
         self.sock.close()
-        self.connected = False
 
     def receive(self):
         return self.sock.recv(RECV_BUFFER)
@@ -112,7 +111,12 @@ if __name__ == "__main__":
     SLEEP_TIME = 0.5
 
     client = ChatClient(username)
-    client.connect(host, port)
+    try:
+        client.connect(host, port)
+        print("Connection succeeded.")
+    except Exception as e:
+        print("Connection failed.")
+        sys.exit(0)
     app = ChatFrame()
     app.master.title(username + '@chatroom')
     app.mainloop()

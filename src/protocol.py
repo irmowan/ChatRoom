@@ -1,4 +1,4 @@
-from time import time
+tfrom time import time
 from datetime import datetime
 __author__ = 'irmo'
 

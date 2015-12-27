@@ -23,7 +23,7 @@ class ChatServer(socket.socket):
             print('Bind failed.')
             sys.exit(0)
         self.sock.listen(5)
-        print('Socket now listening...')
+        print('Socket listening...')
         self.users = {}
 
     def handle_accept(self):
@@ -45,12 +45,14 @@ class ChatServer(socket.socket):
                 continue
             print(package)
             print()
+
             req = handleReuest(package)
             if req.get_type() == 'SEND':
                 self.broadcast(username, package)
             elif req.get_type() == 'EXIT':
                 self.users.pop(req.get_name())
-                print("Connection with %s(%s:%s) ended." % (username, addr[0], addr[1]))
+                print("Connection with %s(%s:%s) ended." %
+                      (username, addr[0], addr[1]))
                 msg = username + " exited the chat room."
                 package = generateRequest(HOST, PORT, 'SYST', 'Admin', msg)
                 self.broadcast(username, package)
